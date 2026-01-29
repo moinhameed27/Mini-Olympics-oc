@@ -6,7 +6,7 @@ export type AdminSession = {
   sessionToken: string;
   adminUserId: string | null;
   username: string | null;
-  role: AdminRole;
+  role: AdminRole; // admin, registration_admin, inventory_admin, hoc_admin
   expiresAt: string | null;
 };
 
@@ -27,7 +27,7 @@ export const roleDefaultPage: Record<AdminRole, string> = {
 };
 
 /**
- * Get admin session by session token string
+ * Get admin session by session token string from database
  */
 export async function getAdminSession(sessionToken: string | undefined): Promise<AdminSession | null> {
   if (!sessionToken) return null;
@@ -35,7 +35,10 @@ export async function getAdminSession(sessionToken: string | undefined): Promise
   // Join admin_sessions -> admin_users when possible.
   // IMPORTANT: Some databases may still be on the legacy schema without admin_user_id/role.
   // In that case, this query fails with "column does not exist", so we fall back.
-  let result: any[] | null = null;
+  
+  // FIX: changed type from 'any[] | null' to 'any' to handle the QueryResult object
+  let result: any = null; 
+  
   try {
     result = await sql`
       SELECT 
@@ -63,7 +66,10 @@ export async function getAdminSession(sessionToken: string | undefined): Promise
     `;
   }
 
-  const row: any = result?.[0] || null;
+  // FIX: Handle both array returns and object returns (with .rows)
+  const rows = result?.rows ? result.rows : result;
+  const row: any = rows?.[0] || null;
+
   if (!row) return null;
 
   return {
@@ -79,4 +85,4 @@ export function hasAnyRole(session: AdminSession | null, allowed: AdminRole[]) {
   if (!session?.role) return false;
   if (session.role === 'super_admin') return true;
   return allowed.includes(session.role);
-}
+} 
